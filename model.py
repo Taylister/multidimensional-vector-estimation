@@ -32,7 +32,7 @@ class Network(torch.nn.Module):
        self.base_vgg = transfer(block=block, pretrained=pretrained)
        #vgg model output shape
        self.n_size = self._get_conv_output(shape=input_shape)
-       #classification model
+       #regression model
        self.fc, self.disc = fcnet(n_size=self.n_size, fc_shapes=fc_shapes, n_dimention=n_dimention)
    
    # generate input sample and forward to get shape
