@@ -15,12 +15,7 @@ from model import Network
 from datasets import ImageDataset
 from losses import estimate_network_loss
 from utils import (
-    gen_input_mask,
-    gen_hole_area,
-    crop,
     sample_random_batch,
-    poisson_blend,
-    extract_mask_region,
     label2img
 )
 
@@ -34,7 +29,7 @@ parser.add_argument('result_dir')
 
 parser.add_argument('--model_weight', type=str, default=None)
 
-parser.add_argument('--epoch', type=int, default=10000)
+parser.add_argument('--epoch', type=int, default=1000)
 parser.add_argument('--saveperiod', type=int, default=5)
 parser.add_argument('--input_size', type=int, default=(60,60))
 parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='SGD')
@@ -63,20 +58,14 @@ def main(args):
 
     # dataset 
     trnsfmColor = transforms.Compose([
-        transforms.Resize(args.cn_input_size),
-        transforms.ToTensor()
-    ])
-
-    trnsfmGray = transforms.Compose([
-        transforms.Grayscale(),
-        transforms.Resize(args.cn_input_size),
+        transforms.Resize(args.input_size),
         transforms.ToTensor()
     ])
 
     torch.cuda.empty_cache()
 
     print("loading dataset... (it may take a few minutes)")
-    train_dset = ImageDataset(os.path.join(args.data_dir, 'train'), trnsfm =trnsfmColor,class_num = 52)
+    train_dset = ImageDataset(os.path.join(args.data_dir, 'datasets'), trnsfm =trnsfmColor,class_num = 52)
     #test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm1 =trnsfmColor, trnsfm2 = trnsfmGray, class_num = 63)
     
     train_loader = DataLoader(train_dset, batch_size=args.bsize, shuffle=True)
@@ -85,12 +74,12 @@ def main(args):
     # ================================================
     # Training Phase 
     # ================================================
-    fc_shapes = 256
+    fc_shapes = [256]
     block = [1,2,3,4,5][1]
     n_dimention = 100
 
     model = Network(block=block,
-                    input_shape=(3, args.input_shape[0],args.input_shape[1]),
+                    input_shape=(3, args.input_size[0],args.input_size[1]),
                     fc_shapes=fc_shapes,
                     n_dimention=n_dimention)
 
@@ -128,48 +117,29 @@ def main(args):
             output = model(input)
 
             loss = estimate_network_loss(output, Vectors)
-            
+            train_loss_acm += loss.item() * input.size(0)
             
             # backward
             loss.backward()
             # optimize
             opt.step()
+
             # clear grads
             opt.zero_grad()
 
             # tensorboard用log出力設定1[ポイント3]
-            writer.add_scalar('data/train_loss', loss.item(), args.epoch*(pbar.n-1)+batch_index)
-            
-        """
+            writer.add_scalar('data/train_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
+        
+        train_loss_acm /= len(train_loader.dataset)
         # update progbar
-        pbar.set_description('train loss: %.5f' % loss.cpu())
+        pbar.set_description('train loss: %.5f' % train_loss_acm)
         pbar.update()
         """
-
-            # test
-            
-            if pbar.n % args.snaperiod_1 == 0 or pbar.n == 1:
-                with torch.no_grad():
-
-                    model_cn_path = os.path.join(args.result_dir, 'phase_1', 'model_cn_step%d' % pbar.n)
-
-                    if args.data_parallel:
-                        torch.save(model.module.state_dict(), model_cn_path)
-                    else:
-                        torch.save(model.state_dict(), model_cn_path)
-
-                    imgs = torch.cat((X.cpu(), X_inpaint.cpu(), completed.cpu()), dim=0)
-                    imgpath = os.path.join(args.result_dir, 'phase_1', 'step%d.png' % pbar.n)
-                    writer.add_image("generated",make_grid(imgs),pbar.n)
-                    save_image(imgs, imgpath, nrow=len(X))
-                   
-            # terminate
-            if pbar.n >= args.steps_1:
-                break
-
+        with torch.no_grad():
+            Images, Labels, Vectors= sample_random_batch(test_dset, batch_size=32)
+        """
     pbar.close()
     writer.close()
-    
 
 
 if __name__ == "__main__":
