@@ -66,9 +66,10 @@ def main(args):
 
     print("loading dataset... (it may take a few minutes)")
     train_dset = ImageDataset(os.path.join(args.data_dir, 'datasets'), trnsfm =trnsfmColor,class_num = 52)
-    #test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm1 =trnsfmColor, trnsfm2 = trnsfmGray, class_num = 63)
+    test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm =trnsfmColor,class_num = 52)
     
     train_loader = DataLoader(train_dset, batch_size=args.bsize, shuffle=True)
+    test_loader = DataLoader(train_dset, batch_size=32, shuffle=True)
 
 
     # ================================================
@@ -129,15 +130,31 @@ def main(args):
 
             # tensorboard用log出力設定1[ポイント3]
             writer.add_scalar('data/train_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
-        
+
+        with torch.no_grad():
+            Images, Labels, Vectors= sample_random_batch(test_dset, batch_size=32)
+            Images = Images.to(gpu)
+            #Labels
+            """
+            condition_g = label2img(
+                shape=(X.shape[0],Labels.shape[2],X.shape[2]//2,X.shape[3]//2),
+                labels = Labels
+            )
+            """
+            Vectors = Vectors.to(gpu)
+            input = Images
+            output = model(input)
+
+            loss = estimate_network_loss(output, Vectors)
+            test_loss_acm += loss.item() * input.size(0)
+
         train_loss_acm /= len(train_loader.dataset)
+        test_loss_acm /= len(test_loa)
         # update progbar
         pbar.set_description('train loss: %.5f' % train_loss_acm)
         pbar.update()
-        """
-        with torch.no_grad():
-            Images, Labels, Vectors= sample_random_batch(test_dset, batch_size=32)
-        """
+        
+        
     pbar.close()
     writer.close()
 
