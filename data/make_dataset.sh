@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
-DATA_DIRPATH="./data"
+DATA_DIRPATH="./"
 
 #CN_MODEL_PATH="PretrainCelebA/model_cn"
 

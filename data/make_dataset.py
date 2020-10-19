@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import imghdr
 import random
@@ -30,21 +31,25 @@ def main(args):
     args.data_dir = os.path.expanduser(args.data_dir)
 
     print('loading dataset and proceccing image data')
+
     src_image_paths = []
-    for file in os.listdir(args.data_dir):
-        path = os.path.join(args.data_dir, file)
+    target_dir_path = os.path.join(args.data_dir,"images")
+
+    for file in os.listdir(target_dir_path):
+        path = os.path.join(target_dir_path, file)
         if imghdr.what(path) == None:
             continue
+
         src_image_paths.append(path)
     random.shuffle(src_image_paths)
 
     src_vector_paths = []
-    target_dir_path = os.path.join(args.data_dir,"/vectors")
+    target_dir_path = os.path.join(args.data_dir,"vectors")
 
     for path in src_image_paths:
-        filename = os.path.basename(path).split(".")[1] + ".npy"
+        filename = os.path.basename(path).split(".")[0] + ".npy"
         target_file_path = os.path.join(target_dir_path,filename)
-        if os.path.exists(target_file_path):
+        if not os.path.exists(target_file_path):
             print("Error: Couldn't find the vector file", file=sys.stderr)
             sys.exit()
         src_vector_paths.append(target_file_path)
