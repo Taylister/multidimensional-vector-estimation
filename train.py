@@ -9,6 +9,7 @@ from torchvision.utils import save_image,make_grid
 from PIL import Image
 import torchvision.transforms as transforms
 import torch
+from collections import OrderedDict
 import numpy as np
 from tqdm import tqdm
 from model import Network
@@ -21,6 +22,7 @@ from utils import (
 
 from tensorboardX import SummaryWriter
 
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 parser = argparse.ArgumentParser()
@@ -29,9 +31,9 @@ parser.add_argument('result_dir')
 
 parser.add_argument('--model_weight', type=str, default=None)
 
-parser.add_argument('--epoch', type=int, default=1000)
+parser.add_argument('--epoch', type=int, default=100)
 parser.add_argument('--saveperiod', type=int, default=5)
-parser.add_argument('--input_size', type=int, default=(60,60))
+parser.add_argument('--input_size', type=int, default=(150,150))
 parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='SGD')
 parser.add_argument('--bsize', type=int, default=64)
 
@@ -65,11 +67,11 @@ def main(args):
     torch.cuda.empty_cache()
 
     print("loading dataset... (it may take a few minutes)")
-    train_dset = ImageDataset(os.path.join(args.data_dir, 'datasets'), trnsfm =trnsfmColor,class_num = 52)
+    train_dset = ImageDataset(os.path.join(args.data_dir, 'train'), trnsfm =trnsfmColor,class_num = 52)
     test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm =trnsfmColor,class_num = 52)
     
     train_loader = DataLoader(train_dset, batch_size=args.bsize, shuffle=True)
-    test_loader = DataLoader(train_dset, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_dset, batch_size=32, shuffle=True)
 
 
     # ================================================
@@ -128,30 +130,39 @@ def main(args):
             # clear grads
             opt.zero_grad()
 
-            # tensorboard用log出力設定1[ポイント3]
+            # tensorboard用log出力設定
             writer.add_scalar('data/train_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
 
+        test_loss_acm = 0
         with torch.no_grad():
-            Images, Labels, Vectors= sample_random_batch(test_dset, batch_size=32)
-            Images = Images.to(gpu)
-            #Labels
-            """
-            condition_g = label2img(
-                shape=(X.shape[0],Labels.shape[2],X.shape[2]//2,X.shape[3]//2),
-                labels = Labels
-            )
-            """
-            Vectors = Vectors.to(gpu)
-            input = Images
-            output = model(input)
+            for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
+                Images = Images.to(gpu)
+                #Labels
+                """
+                condition_g = label2img(
+                    shape=(X.shape[0],Labels.shape[2],X.shape[2]//2,X.shape[3]//2),
+                    labels = Labels
+                )
+                """
+                Vectors = Vectors.to(gpu)
+                input = Images
+                output = model(input)
 
-            loss = estimate_network_loss(output, Vectors)
-            test_loss_acm += loss.item() * input.size(0)
+                loss = estimate_network_loss(output, Vectors)
+
+                writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
+
+                test_loss_acm += loss.item() * input.size(0)
 
         train_loss_acm /= len(train_loader.dataset)
-        test_loss_acm /= len(test_loa)
+        test_loss_acm /= len(test_loader.dataset)
+
+        writer.add_scalar('data/test_loss_avr', train_loss_acm, pbar.n)
+        writer.add_scalar('data/test_loss_avr', test_loss_acm, pbar.n)
+        
         # update progbar
-        pbar.set_description('train loss: %.5f' % train_loss_acm)
+        pbar.set_description('Epoch %d' % pbar.n )
+        pbar.set_postfix(OrderedDict(loss=train_loss_acm, acc=test_loss_acm))
         pbar.update()
         
         

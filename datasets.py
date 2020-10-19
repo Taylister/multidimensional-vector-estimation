@@ -37,8 +37,8 @@ class ImageDataset(data.Dataset):
         #=========================================================================
         
         csv_file_dir = str(pathlib.Path(self.data_dir).parents[0])
-        csvfile_path = os.path.join(csvfile_path,"information.csv")
-        self.char_df = pd.read_csv(csvfile_path) 
+        csv_file_path = os.path.join(csv_file_dir,"information.csv")
+        self.char_df = pd.read_csv(csv_file_path) 
 
         #=========================================================================
         # setting class num
