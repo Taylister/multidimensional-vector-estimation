@@ -1,5 +1,6 @@
 import os
 import imghdr
+import pathlib
 import numpy as np
 import torch
 
@@ -35,7 +36,8 @@ class ImageDataset(data.Dataset):
         # loading csv file
         #=========================================================================
         
-        csvfile_path = os.path.join(self.data_dir,"information.csv")
+        csv_file_dir = str(pathlib.Path(self.data_dir).parents[0])
+        csvfile_path = os.path.join(csvfile_path,"information.csv")
         self.char_df = pd.read_csv(csvfile_path) 
 
         #=========================================================================
