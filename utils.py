@@ -72,9 +72,6 @@ def label2img(shape,labels):
         #print(one_hot)
         index = torch.nonzero(one_hot)[0][1]
         imgs[i, index, :, :,] = 1.0
-        #print(imgs[i][index])
-        #print(imgs[i][0])
-        
     
     return imgs
 
@@ -215,9 +212,8 @@ class Translater:
 
 
     def chr2num(self,label): 
-        num_label = self.alpha_dict[label]
-        return torch.nn.functional.one_hot(torch.tensor(num_label),num_classes=self.num_class)
-        #return num_label
+        num_label = torch.tensor([self.alpha_dict[label]])
+        return torch.nn.functional.one_hot(num_label,num_classes=self.num_class)
 
     def num2chr(self,num):
         char = list(self.alpha_dict.keys())[list(self.alpha_dict.values())[num]]

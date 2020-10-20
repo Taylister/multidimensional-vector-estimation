@@ -65,7 +65,6 @@ class ImageDataset(data.Dataset):
         ###############################################################################
 
         image = Image.open(self.img_paths[index])
-        image = image.convert(color_format)
 
         ##############################################################
         

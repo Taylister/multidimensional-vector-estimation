@@ -33,8 +33,8 @@ parser.add_argument('--model_weight', type=str, default=None)
 
 parser.add_argument('--epoch', type=int, default=100)
 parser.add_argument('--saveperiod', type=int, default=5)
-parser.add_argument('--input_size', type=int, default=(150,150))
-parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='SGD')
+parser.add_argument('--input_size', type=int, default=(128,128))
+parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='adad elta')
 parser.add_argument('--bsize', type=int, default=64)
 
 def main(args):
@@ -59,7 +59,8 @@ def main(args):
         os.makedirs(args.result_dir)
 
     # dataset 
-    trnsfmColor = transforms.Compose([
+    trnsfm = transforms.Compose([
+        transforms.Grayscale(),
         transforms.Resize(args.input_size),
         transforms.ToTensor()
     ])
@@ -67,8 +68,8 @@ def main(args):
     torch.cuda.empty_cache()
 
     print("loading dataset... (it may take a few minutes)")
-    train_dset = ImageDataset(os.path.join(args.data_dir, 'train'), trnsfm =trnsfmColor,class_num = 52)
-    test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm =trnsfmColor,class_num = 52)
+    train_dset = ImageDataset(os.path.join(args.data_dir, 'train'), trnsfm =trnsfm,class_num = 52)
+    test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm =trnsfm,class_num = 52)
     
     train_loader = DataLoader(train_dset, batch_size=args.bsize, shuffle=True)
     test_loader = DataLoader(test_dset, batch_size=32, shuffle=True)
@@ -77,14 +78,13 @@ def main(args):
     # ================================================
     # Training Phase 
     # ================================================
-    fc_shapes = [256]
-    block = [1,2,3,4,5][1]
     n_dimention = 100
+    n_class = 52
 
-    model = Network(block=block,
-                    input_shape=(3, args.input_size[0],args.input_size[1]),
-                    fc_shapes=fc_shapes,
-                    n_dimention=n_dimention)
+    model = Network(
+        input_img_shape=(1, args.input_size[0],args.input_size[1]),
+        n_class =n_class,
+        n_dimention=n_dimention)
 
     if args.model_weight != None:
         model.load_state_dict(torch.load(args.model_weight, map_location='cpu'))
@@ -109,16 +109,17 @@ def main(args):
             # forward
             Images = Images.to(gpu)
             #Labels
-            """
-            condition_g = label2img(
-                shape=(X.shape[0],Labels.shape[2],X.shape[2]//2,X.shape[3]//2),
+            condition = label2img(
+                shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
                 labels = Labels
             )
-            """
-            Vectors = Vectors.to(gpu)
-            input = Images
+            condition = condition.to(gpu)
+            
+            input = torch.cat((Images, condition), dim=1)
             output = model(input)
-
+            
+            # calculate loss
+            Vectors = Vectors.to(gpu)
             loss = estimate_network_loss(output, Vectors)
             train_loss_acm += loss.item() * input.size(0)
             
@@ -138,33 +139,40 @@ def main(args):
             for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
                 Images = Images.to(gpu)
                 #Labels
-                """
-                condition_g = label2img(
-                    shape=(X.shape[0],Labels.shape[2],X.shape[2]//2,X.shape[3]//2),
-                    labels = Labels
+                condition = label2img(
+                shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
+                labels = Labels
                 )
-                """
-                Vectors = Vectors.to(gpu)
-                input = Images
+                condition = condition.to(gpu)
+
+                input = torch.cat((Images, condition), dim=1)
                 output = model(input)
 
+                Vectors = Vectors.to(gpu)
                 loss = estimate_network_loss(output, Vectors)
 
-                writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
+                writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
 
                 test_loss_acm += loss.item() * input.size(0)
 
         train_loss_acm /= len(train_loader.dataset)
         test_loss_acm /= len(test_loader.dataset)
 
-        writer.add_scalar('data/test_loss_avr', train_loss_acm, pbar.n)
+        writer.add_scalar('data/train_loss_avr', train_loss_acm, pbar.n)
         writer.add_scalar('data/test_loss_avr', test_loss_acm, pbar.n)
-        
+
+        model_path = os.path.join(args.result_dir, 'train_ckpt')
+        torch.save(model.state_dict(), model_path)
+
+        if pbar.n % 10 == 0:
+            model_path = os.path.join(args.result_dir, 'model_epoch%d' %pbar.n)
+            torch.save(model.state_dict(), model_path)
+
+
         # update progbar
         pbar.set_description('Epoch %d' % pbar.n )
-        pbar.set_postfix(OrderedDict(loss=train_loss_acm, acc=test_loss_acm))
+        pbar.set_postfix(OrderedDict(train_loss=train_loss_acm, test_loss=test_loss_acm))
         pbar.update()
-        
         
     pbar.close()
     writer.close()
