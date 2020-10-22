@@ -102,7 +102,9 @@ def main(args):
     # training
     pbar = tqdm(total=args.epoch)
     while pbar.n < args.epoch:
+        
         model.train()
+        torch.set_grad_enabled(True)
         # training params and calculate Loss of Network
         train_loss_acm = 0
         for batch_index, (Images, Labels, Vectors) in enumerate(train_loader):
@@ -135,25 +137,23 @@ def main(args):
             writer.add_scalar('data/train_loss', loss.item(), pbar.n*len(train_loader)+batch_index)
 
         test_loss_acm = 0
-        with torch.no_grad():
-            for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
-                Images = Images.to(gpu)
-                #Labels
-                condition = label2img(
-                shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
-                labels = Labels
-                )
-                condition = condition.to(gpu)
-
-                input = torch.cat((Images, condition), dim=1)
-                output = model(input)
-
-                Vectors = Vectors.to(gpu)
-                loss = estimate_network_loss(output, Vectors)
-
-                writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
-
-                test_loss_acm += loss.item() * input.size(0)
+        
+        model.eval()
+        torch.set_grad_enabled(False)
+        for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
+            Images = Images.to(gpu)
+            #Labels
+            condition = label2img(
+            shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
+            labels = Labels
+            )
+            condition = condition.to(gpu)
+            input = torch.cat((Images, condition), dim=1)
+            output = model(input)
+            Vectors = Vectors.to(gpu)
+            loss = estimate_network_loss(output, Vectors)
+            writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
+            test_loss_acm += loss.item() * input.size(0)
 
         train_loss_acm /= len(train_loader.dataset)
         test_loss_acm /= len(test_loader.dataset)
