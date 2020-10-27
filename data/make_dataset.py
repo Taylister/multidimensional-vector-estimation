@@ -25,6 +25,9 @@ parser.add_argument('--split', type=float, default=0.8)
 # └ test
 #    └ images 
 #    └ vectors
+# └ validation
+#    └ images 
+#    └ vectors
 # └ information.csv
 
 def main(args):
@@ -69,19 +72,23 @@ def main(args):
     # create dst directories
     train_image_dir = os.path.join(args.data_dir, 'train/images')
     test_image_dir = os.path.join(args.data_dir, 'test/images')
+    validation_image_dir = os.path.join(args.data_dir, 'validation/images')
 
     train_vector_dir = os.path.join(args.data_dir, 'train/vectors')
     test_vector_dir = os.path.join(args.data_dir, 'test/vectors')
+    validation_vector_dir = os.path.join(args.data_dir, 'validation/vectors')
 
-    if os.path.exists(train_image_dir) == False:
-        os.makedirs(train_image_dir)
-    if os.path.exists(test_image_dir) == False:
-        os.makedirs(test_image_dir)
+    dirs_name = [train_image_dir,
+            test_image_dir,
+            validation_image_dir,
+            train_vector_dir,
+            test_vector_dir,
+            validation_vector_dir]
+    
+    for dir_name in dirs_name:
+        if os.path.exists(dir_name) == False:
+            os.makedirs(dir_name)
 
-    if os.path.exists(train_vector_dir) == False:
-        os.makedirs(train_vector_dir)
-    if os.path.exists(test_vector_dir) == False:
-        os.makedirs(test_vector_dir)
 
     # move the image files
     pbar = tqdm.tqdm(total=len(src_image_paths))

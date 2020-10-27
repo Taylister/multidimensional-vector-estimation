@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from utils import Translater
 import pandas as pd
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 class ImageDataset(data.Dataset):
     def __init__(self, data_dir, class_num,trnsfm=None):
@@ -65,6 +65,7 @@ class ImageDataset(data.Dataset):
         ###############################################################################
 
         image = Image.open(self.img_paths[index])
+        image = ImageOps.invert(image)
 
         ##############################################################
         
@@ -78,9 +79,7 @@ class ImageDataset(data.Dataset):
         ##############################################################
 
         vector_path = os.path.join(self.vectors_dir,vector_file_name)
-        vector = np.load(vector_path)
-        vector = torch.tensor(vector)
-
+        vector = torch.tensor(np.load(vector_path))
         return  image, onehot, vector
 
 

@@ -34,8 +34,8 @@ parser.add_argument('--model_weight', type=str, default=None)
 parser.add_argument('--epoch', type=int, default=100)
 parser.add_argument('--saveperiod', type=int, default=5)
 parser.add_argument('--input_size', type=int, default=(128,128))
-parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='adad elta')
-parser.add_argument('--bsize', type=int, default=64)
+parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='adam')
+parser.add_argument('--bsize', type=int, default=512)
 
 def main(args):
 
@@ -72,12 +72,8 @@ def main(args):
     test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm =trnsfm,class_num = 52)
     
     train_loader = DataLoader(train_dset, batch_size=args.bsize, shuffle=True)
-    test_loader = DataLoader(test_dset, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_dset, batch_size=args.bsize//2, shuffle=True)
 
-
-    # ================================================
-    # Training Phase 
-    # ================================================
     n_dimention = 100
     n_class = 52
 
@@ -91,9 +87,9 @@ def main(args):
     if args.optimizer == 'adadelta':
         opt = Adadelta(model.parameters())
     elif args.optimizer == 'adam':
-        opt = Adam(model.parameters(),lr=0.5)
+        opt = Adam(model.parameters(),lr=0.001)
     else:
-        opt = SGD(model.parameters(),lr=0.1)
+        opt = SGD(model.parameters(),lr=0.01)
 
     model = model.to(gpu)
 
@@ -102,15 +98,15 @@ def main(args):
     # training
     pbar = tqdm(total=args.epoch)
     while pbar.n < args.epoch:
-        
-        model.train()
-        torch.set_grad_enabled(True)
         # training params and calculate Loss of Network
         train_loss_acm = 0
+
+        model.train()
+        torch.set_grad_enabled(True)
+        
         for batch_index, (Images, Labels, Vectors) in enumerate(train_loader):
             # forward
             Images = Images.to(gpu)
-            #Labels
             condition = label2img(
                 shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
                 labels = Labels
@@ -129,7 +125,6 @@ def main(args):
             loss.backward()
             # optimize
             opt.step()
-
             # clear grads
             opt.zero_grad()
 
@@ -141,19 +136,24 @@ def main(args):
         model.eval()
         torch.set_grad_enabled(False)
         for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
+            # forward
             Images = Images.to(gpu)
-            #Labels
             condition = label2img(
             shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
             labels = Labels
             )
             condition = condition.to(gpu)
+
             input = torch.cat((Images, condition), dim=1)
             output = model(input)
+
+            # calculate loss
             Vectors = Vectors.to(gpu)
             loss = estimate_network_loss(output, Vectors)
-            writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
             test_loss_acm += loss.item() * input.size(0)
+
+            writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
+            
 
         train_loss_acm /= len(train_loader.dataset)
         test_loss_acm /= len(test_loader.dataset)
