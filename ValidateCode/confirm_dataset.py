@@ -33,8 +33,8 @@ def main():
     print("loading dataset... (it may take a few minutes)")
     data_dir = os.path.join("/home/miyazonotaiga/デスクトップ/MyResearch/multidimensional_vector-estimation", 'data')
   
-    train_dset = ImageDataset(data_dir, trnsfm=trnsfmColor,class_num = 52)
-    #test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm, recursive_search=args.recursive_search)
+    #train_dset = ImageDataset(data_dir, trnsfm=trnsfmColor,class_num = 52)
+    test_dset = ImageDataset(os.path.join(args.data_dir, 'test'), trnsfm, recursive_search=args.recursive_search)
 
     train_loader = torch.utils.data.DataLoader(train_dset, batch_size=4, shuffle=True)
 

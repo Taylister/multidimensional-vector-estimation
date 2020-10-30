@@ -10,3 +10,4 @@ OUTPUT_DIRPATH="result"
 python train.py \
         ${DATA_DIRPATH} \
         ${OUTPUT_DIRPATH} \
+        --model="VGG"

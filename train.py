@@ -12,7 +12,7 @@ import torch
 from collections import OrderedDict
 import numpy as np
 from tqdm import tqdm
-from model import Network
+from model import Network,VGG
 from datasets import ImageDataset
 from losses import estimate_network_loss
 from utils import (
@@ -22,7 +22,6 @@ from utils import (
 
 from tensorboardX import SummaryWriter
 
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 parser = argparse.ArgumentParser()
@@ -31,11 +30,12 @@ parser.add_argument('result_dir')
 
 parser.add_argument('--model_weight', type=str, default=None)
 
-parser.add_argument('--epoch', type=int, default=100)
+parser.add_argument('--epoch', type=int, default=1000)
 parser.add_argument('--saveperiod', type=int, default=5)
-parser.add_argument('--input_size', type=int, default=(128,128))
+parser.add_argument('--input_size', type=int, default=(224,224))
+parser.add_argument('--model', type=str, choices=['VGG','Normal'], default='Normal')
 parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='adam')
-parser.add_argument('--bsize', type=int, default=512)
+parser.add_argument('--bsize', type=int, default=32)
 
 def main(args):
 
@@ -77,7 +77,13 @@ def main(args):
     n_dimention = 100
     n_class = 52
 
-    model = Network(
+    if args.model == 'VGG':
+        model = VGG(
+        input_img_shape=(1, args.input_size[0],args.input_size[1]),
+        n_class =n_class,
+        n_dimention=n_dimention)
+    else:
+        model = Network(
         input_img_shape=(1, args.input_size[0],args.input_size[1]),
         n_class =n_class,
         n_dimention=n_dimention)
@@ -87,7 +93,7 @@ def main(args):
     if args.optimizer == 'adadelta':
         opt = Adadelta(model.parameters())
     elif args.optimizer == 'adam':
-        opt = Adam(model.parameters(),lr=0.001)
+        opt = Adam(model.parameters(),lr=0.0001)
     else:
         opt = SGD(model.parameters(),lr=0.01)
 
@@ -103,7 +109,6 @@ def main(args):
 
         model.train()
         torch.set_grad_enabled(True)
-        
         for batch_index, (Images, Labels, Vectors) in enumerate(train_loader):
             # forward
             Images = Images.to(gpu)
@@ -154,7 +159,6 @@ def main(args):
 
             writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
             
-
         train_loss_acm /= len(train_loader.dataset)
         test_loss_acm /= len(test_loader.dataset)
 

@@ -65,7 +65,7 @@ class ImageDataset(data.Dataset):
         ###############################################################################
 
         image = Image.open(self.img_paths[index])
-        image = ImageOps.invert(image)
+        #image = ImageOps.invert(image)
 
         ##############################################################
         
@@ -79,7 +79,7 @@ class ImageDataset(data.Dataset):
         ##############################################################
 
         vector_path = os.path.join(self.vectors_dir,vector_file_name)
-        vector = torch.tensor(np.load(vector_path))
+        vector = torch.tensor(np.load(vector_path)) 
         return  image, onehot, vector
 
 
