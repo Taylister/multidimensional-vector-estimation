@@ -213,7 +213,9 @@ class Translater:
 
     def chr2num(self,label): 
         num_label = torch.tensor([self.alpha_dict[label]])
+        #num_label = torch.tensor(self.alpha_dict[label])
         return torch.nn.functional.one_hot(num_label,num_classes=self.num_class)
+        #return num_label
 
     def num2chr(self,num):
         char = list(self.alpha_dict.keys())[list(self.alpha_dict.values())[num]]

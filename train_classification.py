@@ -5,6 +5,7 @@ import argparse
 from torch.utils.data import DataLoader
 from torch.optim import Adadelta, Adam,SGD
 from torch.nn import BCELoss, DataParallel,BCEWithLogitsLoss
+import torch.nn as nn
 from torchvision.utils import save_image,make_grid
 from PIL import Image
 import torchvision.transforms as transforms
@@ -12,7 +13,7 @@ import torch
 from collections import OrderedDict
 import numpy as np
 from tqdm import tqdm
-from model import Network,VGG
+from model import Network,VGG_c
 from datasets import ImageDataset
 from losses import estimate_network_loss
 from utils import (
@@ -35,7 +36,7 @@ parser.add_argument('--saveperiod', type=int, default=5)
 parser.add_argument('--input_size', type=int, default=(224,224))
 parser.add_argument('--model', type=str, choices=['VGG','Normal'], default='Normal')
 parser.add_argument('--optimizer', type=str, choices=['adadelta', 'adam', 'SGD'], default='adam')
-parser.add_argument('--bsize', type=int, default=32)
+parser.add_argument('--bsize', type=int, default=64)
 
 def main(args):
 
@@ -78,7 +79,7 @@ def main(args):
     n_class = 52
 
     if args.model == 'VGG':
-        model = VGG(
+        model = VGG_c(
         input_img_shape=(1, args.input_size[0],args.input_size[1]),
         n_class =n_class,
         n_dimention=n_dimention)
@@ -93,14 +94,14 @@ def main(args):
     if args.optimizer == 'adadelta':
         opt = Adadelta(model.parameters())
     elif args.optimizer == 'adam':
-        opt = Adam(model.parameters(),lr=0.00001)
+        opt = Adam(model.parameters(),lr=0.0001)
     else:
         opt = SGD(model.parameters(),lr=0.01)
 
     model = model.to(gpu)
 
     writer = SummaryWriter()
-
+    loss_function = nn.CrossEntropyLoss()
     # training
     pbar = tqdm(total=args.epoch)
     while pbar.n < args.epoch:
@@ -112,26 +113,19 @@ def main(args):
         for batch_index, (Images, Labels, Vectors) in enumerate(train_loader):
             # forward
             Images = Images.to(gpu)
-            condition = label2img(
-                shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
-                labels = Labels
-            )
-            condition = condition.to(gpu)
+            Labels = Labels.to(gpu)
             
-            input = torch.cat((Images, condition), dim=1)
+            input = Images
             output = model(input)
 
             # clear grads
             opt.zero_grad()
-            
             # calculate loss
-            Vectors = Vectors.to(gpu)
-            loss = estimate_network_loss(output, Vectors)
+            loss = loss_function(output,Labels)
             # backward
             loss.backward()
             # optimize
             opt.step()
-            
 
             train_loss_acm += loss.item() * input.size(0)
             # tensorboard用log出力設定
@@ -144,18 +138,13 @@ def main(args):
         for batch_index, (Images, Labels, Vectors) in enumerate(test_loader):
             # forward
             Images = Images.to(gpu)
-            condition = label2img(
-            shape=(Images.shape[0],Labels.shape[2],Images.shape[2],Images.shape[3]),
-            labels = Labels
-            )
-            condition = condition.to(gpu)
-
-            input = torch.cat((Images, condition), dim=1)
+            Labels = Labels.to(gpu)
+            
+            input = Images
             output = model(input)
-
+            
             # calculate loss
-            Vectors = Vectors.to(gpu)
-            loss = estimate_network_loss(output, Vectors)
+            loss = loss_function(output,Labels)
             test_loss_acm += loss.item() * input.size(0)
 
             writer.add_scalar('data/test_loss', loss.item(), pbar.n*len(test_loader)+batch_index)
