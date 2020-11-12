@@ -32,7 +32,7 @@ You have to prepare a dataset in the following format.
 
 The image file name sould be the same as the latent variable file name correspond to image file. 
 
-After deploy the data above format, just bash `make_dataset.sh`.
+After deploy the data above format, just `bash make_dataset.sh`.
 
 The bash file splits the data between train data and test data.
 
