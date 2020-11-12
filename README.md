@@ -1,4 +1,4 @@
-# multidimensional_vector-estimation
+# multidimensional-vector-estimation
 
 Code for training/estimate latent variable of [Font Design GAN][]
 
